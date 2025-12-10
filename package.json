@@ -9,7 +9,7 @@
     "build:web": "vite build",
     "build:deploy": "vite build",
     "dev": "bun run src/demo.ts",
-    "dev:web": "vite",
+    "dev:web": "vite --host 0.0.0.0 --port 8080",
     "serve": "bunx http-server . -p 8080",
     "demo": "bun run build && bun run dist/demo.js",
     "preview": "vite preview",
@@ -38,6 +38,7 @@
     "starknet": "^8.9.1"
   },
   "devDependencies": {
+    "@types/bun": "^1.1.15",
     "@types/node": "^24.10.1",
     "typescript": "^5.9.3",
     "vite": "^7.2.4"

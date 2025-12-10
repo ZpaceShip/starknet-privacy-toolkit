@@ -2630,7 +2630,9 @@
                 setStatus('Ready', 'success');
 
                 // Initialize badge service
+                console.log('[INIT] Calling initBadgeService...');
                 await initBadgeService();
+                console.log('[INIT] initBadgeService completed');
 
             } catch (error) {
                 const errorMsg = error instanceof Error ? error.message : 'Unknown error';
@@ -2680,7 +2682,9 @@
                     await initializeTongoService();
 
                     // Initialize badge service
+                    console.log('[CONNECT] Calling initBadgeService after existing connection...');
                     await initBadgeService();
+                    console.log('[CONNECT] initBadgeService completed');
 
                     // Try to recover pending swaps (only when Lightning is enabled)
                     if (LIGHTNING_ENABLED) {
@@ -3224,20 +3228,59 @@
         }
 
         async function initBadgeService() {
-            if (!walletAccount) return;
+            console.log('[BADGE] === Starting badge service initialization ===');
+            console.log('[BADGE] walletAccount:', walletAccount ? 'exists' : 'null');
+            
+            if (!walletAccount) {
+                console.warn('[BADGE] No wallet account, skipping initialization');
+                const section = document.getElementById('badge-section');
+                if (section) section.style.display = 'none';
+                return;
+            }
+            
             const section = document.getElementById('badge-section');
-            if (section) section.style.display = 'block';
+            if (section) {
+                section.style.display = 'block';
+                console.log('[BADGE] Badge section made visible');
+            } else {
+                console.warn('[BADGE] badge-section element not found');
+            }
+            
             setBadgeStatus('Initializing Sepolia badge verifier...', 'info');
+            console.log('[BADGE] Status set to initializing');
 
             try {
+                console.log('[BADGE] Creating Sepolia provider...');
                 const sepoliaProvider = createProvider('sepolia');
+                console.log('[BADGE] Sepolia provider created:', sepoliaProvider);
+                
+                console.log('[BADGE] Creating BadgeService instance...');
                 badgeService = new BadgeService(sepoliaProvider, 'sepolia');
+                console.log('[BADGE] BadgeService instance created:', badgeService);
+                
+                console.log('[BADGE] Checking if contract is deployed...');
+                const isDeployed = badgeService.isContractDeployed();
+                console.log('[BADGE] Contract deployed:', isDeployed);
+                
+                if (!isDeployed) {
+                    throw new Error('Badge contract not deployed on Sepolia');
+                }
+                
                 setBadgeStatus('Connected to Sepolia badge verifier ✅', 'success');
+                console.log('[BADGE] === Badge service initialized successfully ===');
+                
+                console.log('[BADGE] Refreshing badge status...');
                 await refreshBadgeStatus();
+                console.log('[BADGE] Badge status refreshed');
             } catch (error) {
                 badgeService = null;
-                console.warn('[BADGE] Could not initialize badge service:', error);
-                setBadgeStatus('Badge verifier unavailable. Please stay on Sepolia or try again later.', 'error');
+                console.error('[BADGE] === INITIALIZATION FAILED ===');
+                console.error('[BADGE] Error object:', error);
+                console.error('[BADGE] Error stack:', error instanceof Error ? error.stack : 'N/A');
+                
+                const errorMsg = error instanceof Error ? error.message : String(error);
+                setBadgeStatus(`Badge verifier error: ${errorMsg}`, 'error');
+                addLog(`[BADGE] Initialization failed: ${errorMsg}`, 'error');
             }
         }
 

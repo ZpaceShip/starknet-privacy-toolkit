@@ -6,8 +6,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        - BUILDKIT_INLINE_CACHE=1
     container_name: starknet-privacy-toolkit
     ports:
       - "8080:8080"   # Vite dev server / Web frontend
@@ -24,6 +22,9 @@ services:
       
       # Mount deployments and configuration
       - ./deployments:/app/deployments
+      - ./vite.config.ts:/app/vite.config.ts:ro
+      - ./tsconfig.json:/app/tsconfig.json:ro
+      - ./package.json:/app/package.json:ro
       
       # Mount environment file (create from .env.example)
       - ./.env:/app/.env:ro
@@ -45,7 +46,7 @@ services:
     restart: unless-stopped
     stdin_open: true
     tty: true
-    command: sh -c "bun run api/server.ts & bun run dev:web"
+    command: sh -c "bun run api/server.ts & bun run dev:web & wait"
 
   # ============================================
   # Optional: Dedicated API Service

@@ -1,11 +1,7 @@
 import { Account as TongoAccount } from '@fatsolutions/tongo-sdk';
 import { Account, Call, RpcProvider } from 'starknet';
 import { TongoDonationState, TongoOperation } from './types';
-
-// Import pubKeyBase58ToAffine from the dist folder
-// Note: This is a workaround since the package doesn't export it from the main entry
-// Vite will resolve this with proper configuration
-import { pubKeyBase58ToAffine } from '@fatsolutions/tongo-sdk/dist/types.js';
+import { pubKeyBase58ToAffine } from './tongo-utils';
 
 /**
  * Pads a Starknet address to 66 characters (0x + 64 hex digits).

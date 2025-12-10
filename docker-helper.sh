@@ -39,16 +39,110 @@ check_env() {
     print_success ".env file found"
 }
 
+# Setup local development environment (IDE support)
+setup() {
+    print_info "Setting up local development environment..."
+    
+    # Check if npm is available
+    if ! command -v npm &> /dev/null; then
+        print_error "npm is not installed. Please install Node.js and npm first."
+        exit 1
+    fi
+    
+    # Install local dependencies for IDE TypeScript support
+    print_info "Installing local dependencies (for IDE support)..."
+    npm install --legacy-peer-deps
+    
+    print_success "Local development environment setup complete"
+    print_info "TypeScript types are now available for your IDE"
+}
+
 # Build Docker image
 build() {
+    # Auto-install local dependencies if not present (for IDE support)
+    if [ ! -d "node_modules" ]; then
+        print_info "Installing local dependencies for IDE support..."
+        
+        if command -v npm &> /dev/null; then
+            npm install --legacy-peer-deps
+            print_success "Local dependencies installed"
+        else
+            print_warning "npm not available. TypeScript errors may appear in your IDE."
+        fi
+    fi
+    
+    # Check if Docker is running
+    if ! docker info > /dev/null 2>&1; then
+        print_error "Docker daemon is not running"
+        print_info "Starting Docker daemon..."
+        sudo dockerd > /tmp/dockerd.log 2>&1 &
+        sleep 5
+        
+        if ! docker info > /dev/null 2>&1; then
+            print_error "Failed to start Docker. Check /tmp/dockerd.log for details."
+            exit 1
+        fi
+        print_success "Docker daemon started"
+    fi
+    
     print_info "Building Docker image..."
-    docker-compose build --no-cache
+    # Use regular build without --no-cache to avoid overlay2 issues
+    docker-compose build
     print_success "Docker image built successfully"
+}
+
+# Rebuild Docker image from scratch (clean build)
+rebuild() {
+    print_warning "This will perform a clean rebuild (no cache)"
+    
+    # Check if Docker is running
+    if ! docker info > /dev/null 2>&1; then
+        print_error "Docker daemon is not running"
+        print_info "Starting Docker daemon..."
+        sudo dockerd > /tmp/dockerd.log 2>&1 &
+        sleep 5
+    fi
+    
+    print_info "Cleaning Docker build cache..."
+    docker builder prune -f || true
+    
+    print_info "Rebuilding Docker image from scratch..."
+    docker-compose build --no-cache --pull
+    print_success "Docker image rebuilt successfully"
 }
 
 # Start services
 start() {
     check_env
+    
+    # Auto-install local dependencies if not present (for IDE support)
+    if [ ! -d "node_modules" ]; then
+        print_warning "node_modules not found locally"
+        print_info "Installing dependencies for IDE support..."
+        
+        if command -v npm &> /dev/null; then
+            npm install --legacy-peer-deps
+            print_success "Local dependencies installed"
+        else
+            print_warning "npm not available. Skipping local dependency installation."
+            print_info "TypeScript errors may appear in your IDE until you run: npm install --legacy-peer-deps"
+        fi
+    fi
+    
+    # Check if Docker is running
+    if ! docker info > /dev/null 2>&1; then
+        print_error "Docker daemon is not running"
+        print_info "Starting Docker daemon..."
+        sudo dockerd > /tmp/dockerd.log 2>&1 &
+        sleep 3
+        
+        if ! docker info > /dev/null 2>&1; then
+            print_error "Failed to start Docker. Check /tmp/dockerd.log for details."
+            exit 1
+        fi
+        print_success "Docker daemon started"
+    fi
+    
     print_info "Starting services..."
     docker-compose up -d
     print_success "Services started successfully"
@@ -138,7 +232,9 @@ Starknet Privacy Toolkit - Docker Helper
 Usage: ./docker-helper.sh [command]
 
 Commands:
-    build           Build Docker image
+    setup           Install local dependencies for IDE support (TypeScript types)
+    build           Build Docker image (incremental)
+    rebuild         Rebuild Docker image from scratch (clean build, no cache)
     start           Start all services
     stop            Stop all services
     restart         Restart all services
@@ -157,7 +253,9 @@ Commands:
     help            Show this help message
 
 Examples:
-    ./docker-helper.sh start
+    ./docker-helper.sh setup         # First time setup for IDE support
+    ./docker-helper.sh build         # Build Docker image
+    ./docker-helper.sh start         # Start services
     ./docker-helper.sh logs
     ./docker-helper.sh proof --amount 1000 --threshold 1000 --donor-secret hunter2 --tier 1
     ./docker-helper.sh exec bun run build
@@ -167,8 +265,14 @@ EOF
 
 # Main script
 case "$1" in
+    setup)
+        setup
+        ;;
     build)
         build
+        ;;
+    rebuild)
+        rebuild
         ;;
     start)
         start

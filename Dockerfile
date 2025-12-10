@@ -21,6 +21,8 @@ RUN apt-get update && apt-get install -y \
     jq \
     unzip \
     ca-certificates \
+    libc++-dev \
+    libc++abi-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
@@ -37,11 +39,12 @@ ENV BUN_INSTALL="/root/.bun"
 ENV PATH="$BUN_INSTALL/bin:$PATH"
 
 # ============================================
-# Stage 2: Install Rust and Cargo
+# Install Rust and Cargo
 # ============================================
 FROM bun-installer AS rust-installer
 
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && \
+    rm -rf /root/.rustup/toolchains/*/share/doc
 ENV PATH="/root/.cargo/bin:$PATH"
 
 # ============================================
@@ -61,12 +64,15 @@ RUN /root/.nargo/bin/noirup --version 1.0.0-beta.1
 # ============================================
 FROM noir-installer AS bb-installer
 
-# Install Barretenberg directly (version 0.67.0)
-# Note: bbup installer has issues, so we download the binary directly
-RUN curl -L https://github.com/AztecProtocol/aztec-packages/releases/download/barretenberg-v0.67.0/bb-linux-x86_64 -o /usr/local/bin/bb && \
-    chmod +x /usr/local/bin/bb
+# Install Barretenberg (bb) - compatible version for ultra_keccak_honk
+# Using the robust installation script approach
+COPY scripts/install-barretenberg.sh /tmp/install-barretenberg.sh
+RUN chmod +x /tmp/install-barretenberg.sh && \
+    BB_VERSION=0.67.0 /tmp/install-barretenberg.sh && \
+    rm /tmp/install-barretenberg.sh
 
-ENV PATH="/usr/local/bin:$PATH"
+ENV BB_HOME="/root/.bb"
+ENV PATH="/root/.bb:${PATH}"
 
 # ============================================
 # Stage 5: Install Garaga (Python)
@@ -76,9 +82,11 @@ FROM bb-installer AS garaga-installer
 # Create Python virtual environment
 RUN python3.10 -m venv /app/garaga-env
 
-# Install Garaga
+# Install Garaga and clean up cache
 RUN /app/garaga-env/bin/pip install --upgrade pip && \
-    /app/garaga-env/bin/pip install garaga==0.15.5
+    /app/garaga-env/bin/pip install garaga==0.15.5 && \
+    /app/garaga-env/bin/pip cache purge && \
+    rm -rf /root/.cache/pip
 
 # Add garaga to PATH
 ENV PATH="/app/garaga-env/bin:$PATH"
@@ -110,7 +118,7 @@ ENV PATH="/root/.foundry/bin:$PATH"
 FROM starknet-foundry-installer AS final
 
 # Set environment variables
-ENV NODE_ENV=production
+ENV NODE_ENV=development
 ENV PATH="/usr/local/bin:/root/.bun/bin:/root/.cargo/bin:/root/.nargo/bin:/app/garaga-env/bin:/root/.local/bin:/root/.foundry/bin:$PATH"
 
 # Copy package files

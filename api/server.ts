@@ -29,7 +29,13 @@ const server = Bun.serve({
       try {
         const body = await req.json();
         const { donationamount, threshold, donorsecret, badgetier } = body;
-        console.log("Generating proof for:", { donationamount, threshold, badgetier });
+        console.log("Received body:", JSON.stringify(body));
+        console.log("Types:", {
+          donationamount: typeof donationamount,
+          threshold: typeof threshold,
+          donorsecret: typeof donorsecret,
+          badgetier: typeof badgetier
+        });
 
         const p = await getPoseidon();
         const hash = p([BigInt(donorsecret), BigInt(donationamount)]);
@@ -42,9 +48,9 @@ threshold = ${threshold}
 badge_tier = ${badgetier}
 donation_commitment = "${commitment}"
 `;
-        writeFileSync("/workspaces/tongo-ukraine-donations/zk-badges/donation_badge/Prover.toml", proverToml);
+        writeFileSync("/app/zk-badges/donation_badge/Prover.toml", proverToml);
 
-        const dir = "/workspaces/tongo-ukraine-donations/zk-badges/donation_badge";
+        const dir = "/app/zk-badges/donation_badge";
         console.log("Running nargo execute...");
         await $`cd ${dir} && nargo execute witness`.quiet();
         console.log("Running bb prove...");
@@ -52,7 +58,7 @@ donation_commitment = "${commitment}"
         console.log("Running bb write_vk...");
         await $`cd ${dir} && bb write_vk_ultra_keccak_honk -b ./target/donation_badge.json -o ./target/vk`.quiet();
         console.log("Running garaga calldata...");
-        const result = await $`cd ${dir} && /workspaces/tongo-ukraine-donations/garaga-env/bin/garaga calldata --system ultra_keccak_honk --vk ./target/vk --proof ./target/proof --format array`.text();
+        const result = await $`cd ${dir} && garaga calldata --system ultra_keccak_honk --vk ./target/vk --proof ./target/proof --format array`.text();
 
         console.log("Proof generated successfully!");
         return new Response(JSON.stringify({ calldata: result.trim(), commitment, success: true }), { headers });

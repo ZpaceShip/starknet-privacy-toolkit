@@ -11,53 +11,61 @@ export enum BadgeTier {
   GOLD = 3,
 }
 
-const BADGE_CONTRACT_ADDRESS: Record<'mainnet' | 'sepolia', string> = {
-  mainnet: getContractAddress('mainnet', 'DonationBadge'),
-  sepolia: getContractAddress('sepolia', 'DonationBadge'),
-};
+// Lazy initialization to avoid module loading issues
+function getBadgeContractAddress(network: 'mainnet' | 'sepolia'): string {
+  try {
+    return getContractAddress(network, 'DonationBadge');
+  } catch (error) {
+    console.warn(`[BadgeService] Could not get contract address for ${network}:`, error);
+    return '0x0';
+  }
+}
 
+// Simplified ABI - only define the functions we actually use
 const BADGE_ABI = [
   {
-    name: 'claim_badge',
     type: 'function',
-    inputs: [
-      { name: 'full_proof_with_hints', type: 'core::array::Span::re::felt252>' },
-      { name: 'threshold', type: 'core::integer::u256' },
-      { name: 'donation_commitment', type: 'core::integer::u256' },
-      { name: 'badge_tier', type: 'core::integer::u8' },
-    ],
-    outputs: [{ type: 'core::bool' }],
-  },
-  {
-    name: 'has_badge',
-    type: 'function',
-    inputs: [
-      { name: 'address', type: 'core::starknet::contract_address::ContractAddress' },
-      { name: 'tier', type: 'core::integer::u8' },
-    ],
-    outputs: [{ type: 'core::bool' }],
-    state_mutability: 'view',
-  },
-  {
     name: 'get_badge_tier',
-    type: 'function',
-    inputs: [{ name: 'address', type: 'core::starknet::contract_address::ContractAddress' }],
-    outputs: [{ type: 'core::integer::u8' }],
+    inputs: [
+      {
+        name: 'address',
+        type: 'felt',
+      },
+    ],
+    outputs: [
+      {
+        type: 'u8',
+      },
+    ],
     state_mutability: 'view',
   },
   {
-    name: 'is_commitment_used',
     type: 'function',
-    inputs: [{ name: 'commitment', type: 'core::integer::u256' }],
-    outputs: [{ type: 'core::bool' }],
-    state_mutability: 'view',
-  },
-  {
-    name: 'get_badge_counts',
-    type: 'function',
-    inputs: [],
-    outputs: [{ type: '(core::integer::u64, core::integer::u64, core::integer::u64)' }],
-    state_mutability: 'view',
+    name: 'claim_badge',
+    inputs: [
+      {
+        name: 'full_proof_with_hints',
+        type: 'felt*',
+      },
+      {
+        name: 'threshold',
+        type: 'u256',
+      },
+      {
+        name: 'donation_commitment',
+        type: 'u256',
+      },
+      {
+        name: 'badge_tier',
+        type: 'u8',
+      },
+    ],
+    outputs: [
+      {
+        type: 'bool',
+      },
+    ],
+    state_mutability: 'external',
   },
 ];
 
@@ -89,22 +97,42 @@ export class BadgeService {
   constructor(
     provider: RpcProvider,
     network: 'mainnet' | 'sepolia' = 'sepolia',
-    proofBackendUrl: string = 'https://shiny-computing-machine-vr99pj4vw5hx9qj-3001.app.github.dev/api/generate-proof',
+    proofBackendUrl?: string,
   ) {
     this.provider = provider;
     // Force Sepolia for badges until mainnet deployment is ready
     this.network = 'sepolia';
-    this.proofBackendUrl = proofBackendUrl;
+    
+    // Use relative URL for API calls - Vite proxy will handle routing
+    // This works in all environments (local, Docker, Codespaces)
+    this.proofBackendUrl = proofBackendUrl || '/api/generate-proof';
 
-    const contractAddress = BADGE_CONTRACT_ADDRESS[this.network];
+    const contractAddress = getBadgeContractAddress(this.network);
+    console.log('[BadgeService] Initializing with contract address:', contractAddress);
+    console.log('[BadgeService] ABI type:', typeof BADGE_ABI, 'ABI length:', BADGE_ABI?.length);
+    
     if (contractAddress && contractAddress !== '0x0') {
-      const StarknetContract = Contract as unknown as new (...args: any[]) => Contract;
-      this.contract = new StarknetContract(BADGE_ABI as any, contractAddress, provider);
+      try {
+        // Create contract instance using starknet.js v8.9.1 format
+        // Constructor: new Contract({ abi, address, providerOrAccount })
+        this.contract = new Contract({
+          abi: BADGE_ABI,
+          address: contractAddress,
+          providerOrAccount: provider
+        });
+        console.log('[BadgeService] Contract instance created successfully');
+      } catch (error) {
+        console.error('[BadgeService] Failed to initialize contract:', error);
+        console.error('[BadgeService] Will continue without contract instance');
+        this.contract = null;
+      }
+    } else {
+      console.warn('[BadgeService] Contract address is missing or zero');
     }
   }
 
   isContractDeployed(): boolean {
-    const address = BADGE_CONTRACT_ADDRESS[this.network];
+    const address = getBadgeContractAddress(this.network);
     return Boolean(address && address !== '0x0');
   }
 
@@ -160,14 +188,21 @@ export class BadgeService {
       progress: 30,
     });
 
+    // Convert donor secret string to a numeric value
+    // Use a simple hash: sum of char codes
+    let secretNumeric = 0;
+    for (let i = 0; i < input.donorSecret.length; i++) {
+      secretNumeric = (secretNumeric * 31 + input.donorSecret.charCodeAt(i)) % Number.MAX_SAFE_INTEGER;
+    }
+
     const response = await fetch(this.proofBackendUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        donation_amount: input.donationAmountCents,
-        donor_secret: input.donorSecret,
+        donationamount: input.donationAmountCents,
+        donorsecret: secretNumeric.toString(),
         threshold,
-        badge_tier: input.targetTier,
+        badgetier: input.targetTier,
       }),
     });
 
