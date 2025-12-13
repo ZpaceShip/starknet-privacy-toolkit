@@ -10,7 +10,7 @@ cp .env.example .env
 
 ### 2. Start Docker
 
-```bash
+```bash"hora desd
 bash docker-helper.sh start
 ```
 
