@@ -8,6 +8,15 @@ This repository hosts an end-to-end reference implementation of Starknet privacy
 
 ---
 
+## Documentation Map (canonical)
+
+- This README is the canonical entrypoint (quickstart, deployments, and how to run).
+- Docker specifics: [DOCKER.md](DOCKER.md) (use the helper scripts; everything else is optional).
+- Badge contract redeploy (Sepolia): [MANUAL_DEPLOY_INSTRUCTIONS.md](MANUAL_DEPLOY_INSTRUCTIONS.md).
+- Cairo verifier + badge contract details: [donation_badge_verifier/README.md](donation_badge_verifier/README.md).
+- Noir circuit + proof generation: [zk-badges/README.md](zk-badges/README.md).
+- Legacy deep-dive (`README_DEVELOPERS_GUIDE.md`) now points back here to avoid duplication.
+
 ## System Overview
 
 | Layer | Component | Purpose |
@@ -29,7 +38,7 @@ This repository hosts an end-to-end reference implementation of Starknet privacy
 | Mainnet | USDC Token | `0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8` | ERC20 used for funding/withdraw |
 | **Sepolia** | Tongo Donation Contract | `0x00b4cca30f0f641e01140c1c388f55641f1c3fe5515484e622b6cb91d8cee585` | Testnet STRK version |
 | Sepolia | STRK Token | `0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d` | Testnet token used in UI |
-| Sepolia | `DonationBadge` Contract | `0x077ca6f2ee4624e51ed6ea6d5ca292889ca7437a0c887bf0d63f055f42ad7010` | Mints badge tiers after proof verification |
+| Sepolia | `DonationBadge` Contract | `0x02322f587511a10412175afc0312012fd55c271f6073966450cd7821bfd9aee1` | Class hash `0x784536a36311694eaa1f8fa753e508e527f9d90527790293798508120dd30e1`; uses verifier `0x022b20fef3764d09293c5b377bc399ae7490e60665797ec6654d478d74212669` |
 | Sepolia | `UltraKeccakHonkVerifier` | `0x022b20fef3764d09293c5b377bc399ae7490e60665797ec6654d478d74212669` | Garaga-generated verifier used by badge contract |
 
 Deployment metadata lives in `deployments/`, and the frontend consumes it via `src/deployments.ts`. Add a new `<network>.json` file when you deploy additional environments.
@@ -113,8 +122,8 @@ DEPLOY.md                      # Pages deploy + deployment registry policy
 
 2. **Clone and configure**:
    ```bash
-   git clone https://github.com/omarespejel/tongo-ukraine-donations.git
-   cd starknet-privacy-toolkit
+  git clone https://github.com/omarespejel/starknet-privacy-toolkit.git
+  cd starknet-privacy-toolkit
    cp .env.example .env
    ```
 
@@ -157,11 +166,11 @@ DEPLOY.md                      # Pages deploy + deployment registry policy
 If you prefer to install dependencies manually:
 
 1. **Clone + install JS deps**
-   ```bash
-   git clone https://github.com/omarespejel/tongo-ukraine-donations.git
-   cd tongo-donation-demo
-   bun install
-   ```
+  ```bash
+  git clone https://github.com/omarespejel/starknet-privacy-toolkit.git
+  cd starknet-privacy-toolkit
+  bun install
+  ```
 
 2. **Install ZK toolchain (versions matter!)**
    ```bash
@@ -372,8 +381,8 @@ This repository is intentionally dual-purpose: it is both a Garaga/Noir badge tu
 ### Installation
 
 ```bash
-git clone https://github.com/omarespejel/tongo-ukraine-donations.git
-cd tongo-donation-demo
+git clone https://github.com/omarespejel/starknet-privacy-toolkit.git
+cd starknet-privacy-toolkit
 bun install
 ```
 
@@ -406,7 +415,7 @@ Requires the `.env` values mentioned above.
 | ------- | -------------- | ----- | ----- |
 | Mainnet | `0x72098b84989a45cc00697431dfba300f1f5d144ae916e98287418af4e548d96` | USDC `0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8` | Matches SDK v1.3.0 |
 | Sepolia | `0x00b4cca30f0f641e01140c1c388f55641f1c3fe5515484e622b6cb91d8cee585` | STRK `0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d` | Uses Alchemy RPC |
-| Sepolia (Badges) | `DonationBadge` `0x077ca6f2ee4624e51ed6ea6d5ca292889ca7437a0c887bf0d63f055f42ad7010` | N/A | Calls into verifier `0x022b20fef3764d09293c5b377bc399ae7490e60665797ec6654d478d74212669` |
+| Sepolia (Badges) | `DonationBadge` `0x02322f587511a10412175afc0312012fd55c271f6073966450cd7821bfd9aee1` | N/A | Class hash `0x784536a36311694eaa1f8fa753e508e527f9d90527790293798508120dd30e1`; verifier `0x022b20fef3764d09293c5b377bc399ae7490e60665797ec6654d478d74212669` |
 
 Edit `src/wallet-config.ts` for RPCs; the `.env` file affects CLI usage only.
 
