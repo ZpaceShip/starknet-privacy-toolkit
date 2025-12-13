@@ -31,12 +31,30 @@ print_info() {
 # Check if .env exists
 check_env() {
     if [ ! -f .env ]; then
-        print_warning ".env file not found. Creating from .env.example..."
-        cp .env.example .env
-        print_info "Please edit .env file with your configuration before running the app"
-        exit 1
+        if [ -f .env.example ]; then
+            print_warning ".env not found. Using .env.example as fallback (edit .env to customize)."
+            cp .env.example .env
+        else
+            print_warning ".env and .env.example not found. Proceeding without env overrides."
+        fi
     fi
-    print_success ".env file found"
+    print_success "Env ready ('.env' present or fallback applied)"
+}
+
+# Detect compose command (docker compose or docker-compose)
+compose_cmd() {
+    if command -v docker &> /dev/null; then
+        if docker compose version >/dev/null 2>&1; then
+            echo "docker compose"
+            return 0
+        fi
+    fi
+    if command -v docker-compose &> /dev/null; then
+        echo "docker-compose"
+        return 0
+    fi
+    print_error "Neither 'docker compose' nor 'docker-compose' found. Install Docker Compose."
+    exit 1
 }
 
 # Setup local development environment (IDE support)
@@ -87,7 +105,7 @@ build() {
     
     print_info "Building Docker image..."
     # Use regular build without --no-cache to avoid overlay2 issues
-    docker-compose build
+    $(compose_cmd) build
     print_success "Docker image built successfully"
 }
 
@@ -107,7 +125,7 @@ rebuild() {
     docker builder prune -f || true
     
     print_info "Rebuilding Docker image from scratch..."
-    docker-compose build --no-cache --pull
+    $(compose_cmd) build --no-cache --pull
     print_success "Docker image rebuilt successfully"
 }
 
@@ -144,16 +162,21 @@ start() {
     fi
     
     print_info "Starting services..."
-    docker-compose up -d
+    $(compose_cmd) up -d
     print_success "Services started successfully"
-    print_info "Web UI: http://localhost:8080"
-    print_info "API: http://localhost:3001"
+    # Codespaces hint
+    if [ -n "$CODESPACES" ] || [ -n "$GITHUB_CODESPACES" ]; then
+        print_info "Detected Codespaces: use the 'Ports' panel to open 8080/3001 (auto-forwarded URLs)."
+    else
+        print_info "Web UI: http://localhost:8080"
+        print_info "API: http://localhost:3001"
+    fi
 }
 
 # Stop services
 stop() {
     print_info "Stopping services..."
-    docker-compose down
+    $(compose_cmd) down
     print_success "Services stopped"
 }
 
@@ -165,38 +188,38 @@ restart() {
 
 # View logs
 logs() {
-    docker-compose logs -f
+    $(compose_cmd) logs -f
 }
 
 # Execute command in container
 exec_cmd() {
-    docker-compose exec app "$@"
+    $(compose_cmd) exec app "$@"
 }
 
 # Generate ZK proof
 generate_proof() {
     print_info "Generating ZK proof..."
-    docker-compose exec app bash -c "cd /app/zk-badges && ./generate-proof.sh $@"
+    $(compose_cmd) exec app bash -c "cd /app/zk-badges && ./generate-proof.sh $@"
 }
 
 # Compile Noir circuit
 compile_circuit() {
     print_info "Compiling Noir circuit..."
-    docker-compose exec app bash -c "cd /app/zk-badges/donation_badge && nargo compile"
+    $(compose_cmd) exec app bash -c "cd /app/zk-badges/donation_badge && nargo compile"
     print_success "Circuit compiled"
 }
 
 # Build Cairo verifier
 build_verifier() {
     print_info "Building Cairo verifier..."
-    docker-compose exec app bash -c "cd /app/donation_badge_verifier && scarb build"
+    $(compose_cmd) exec app bash -c "cd /app/donation_badge_verifier && scarb build"
     print_success "Verifier built"
 }
 
 # Run tests
 test() {
     print_info "Running tests..."
-    docker-compose exec app bash -c "cd /app/zk-badges/donation_badge && nargo test"
+    $(compose_cmd) exec app bash -c "cd /app/zk-badges/donation_badge && nargo test"
     print_success "Tests completed"
 }
 

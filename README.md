@@ -162,6 +162,8 @@ docker exec -it starknet-privacy-toolkit bash -c "sncast --account temp_oz_accou
 Notas:
 - Si el declare devuelve "class no declarada" al intentar deploy, espera ~30s y reintenta.
 - La UI de badges está fija a Sepolia; las donaciones Tongo siguen el toggle de red.
+- **Cada claim requiere un `commitment` único**; si se reutiliza el mismo, el contrato lo rechaza con "Commitment already used". Regenera la prueba con un `donor_secret` diferente o valores nuevos.
+- En **GitHub Codespaces**: tras `bash docker-helper.sh start`, abre la pestaña "Ports" en el panel lateral para acceder a los enlaces auto-forwarded (8080 y 3001).
 
 
 1. **Install Docker Desktop**: [Download here](https://www.docker.com/products/docker-desktop)
