@@ -1,7 +1,7 @@
 // src/badge-service.ts
 // Donation Badge Service - handles proof generation + Starknet interaction
 
-import { Account, Contract, RpcProvider } from 'starknet';
+import { Account, Contract, RpcProvider, cairo, CallData } from 'starknet';
 import { getContractAddress } from './deployments';
 
 export enum BadgeTier {
@@ -21,51 +21,203 @@ function getBadgeContractAddress(network: 'mainnet' | 'sepolia'): string {
   }
 }
 
-// Simplified ABI - only define the functions we actually use
+// Correct compiled ABI from donation_badge_verifier (Cairo 2.9.2 / Scarb 2.9.2)
+// This ABI matches the exact types from the compiled contract class
 const BADGE_ABI = [
   {
-    type: 'function',
-    name: 'get_badge_tier',
-    inputs: [
-      {
-        name: 'address',
-        type: 'felt',
-      },
-    ],
-    outputs: [
-      {
-        type: 'u8',
-      },
-    ],
-    state_mutability: 'view',
+    type: 'impl',
+    name: 'DonationBadgeImpl',
+    interface_name: 'donation_badge_verifier::badge_contract::IDonationBadge',
   },
   {
-    type: 'function',
-    name: 'claim_badge',
+    type: 'struct',
+    name: 'core::array::Span::<core::felt252>',
+    members: [
+      {
+        name: 'snapshot',
+        type: '@core::array::Array::<core::felt252>',
+      },
+    ],
+  },
+  {
+    type: 'struct',
+    name: 'core::integer::u256',
+    members: [
+      {
+        name: 'low',
+        type: 'core::integer::u128',
+      },
+      {
+        name: 'high',
+        type: 'core::integer::u128',
+      },
+    ],
+  },
+  {
+    type: 'enum',
+    name: 'core::bool',
+    variants: [
+      {
+        name: 'False',
+        type: '()',
+      },
+      {
+        name: 'True',
+        type: '()',
+      },
+    ],
+  },
+  {
+    type: 'interface',
+    name: 'donation_badge_verifier::badge_contract::IDonationBadge',
+    items: [
+      {
+        type: 'function',
+        name: 'claim_badge',
+        inputs: [
+          {
+            name: 'full_proof_with_hints',
+            type: 'core::array::Span::<core::felt252>',
+          },
+          {
+            name: 'threshold',
+            type: 'core::integer::u256',
+          },
+          {
+            name: 'donation_commitment',
+            type: 'core::integer::u256',
+          },
+          {
+            name: 'badge_tier',
+            type: 'core::integer::u8',
+          },
+        ],
+        outputs: [
+          {
+            type: 'core::bool',
+          },
+        ],
+        state_mutability: 'external',
+      },
+      {
+        type: 'function',
+        name: 'has_badge',
+        inputs: [
+          {
+            name: 'address',
+            type: 'core::starknet::contract_address::ContractAddress',
+          },
+          {
+            name: 'tier',
+            type: 'core::integer::u8',
+          },
+        ],
+        outputs: [
+          {
+            type: 'core::bool',
+          },
+        ],
+        state_mutability: 'view',
+      },
+      {
+        type: 'function',
+        name: 'get_badge_tier',
+        inputs: [
+          {
+            name: 'address',
+            type: 'core::starknet::contract_address::ContractAddress',
+          },
+        ],
+        outputs: [
+          {
+            type: 'core::integer::u8',
+          },
+        ],
+        state_mutability: 'view',
+      },
+      {
+        type: 'function',
+        name: 'is_commitment_used',
+        inputs: [
+          {
+            name: 'commitment',
+            type: 'core::integer::u256',
+          },
+        ],
+        outputs: [
+          {
+            type: 'core::bool',
+          },
+        ],
+        state_mutability: 'view',
+      },
+      {
+        type: 'function',
+        name: 'get_badge_counts',
+        inputs: [],
+        outputs: [
+          {
+            type: '(core::integer::u64, core::integer::u64, core::integer::u64)',
+          },
+        ],
+        state_mutability: 'view',
+      },
+      {
+        type: 'function',
+        name: 'get_verifier_address',
+        inputs: [],
+        outputs: [
+          {
+            type: 'core::starknet::contract_address::ContractAddress',
+          },
+        ],
+        state_mutability: 'view',
+      },
+    ],
+  },
+  {
+    type: 'constructor',
+    name: 'constructor',
     inputs: [
       {
-        name: 'full_proof_with_hints',
-        type: 'felt*',
-      },
-      {
-        name: 'threshold',
-        type: 'u256',
-      },
-      {
-        name: 'donation_commitment',
-        type: 'u256',
-      },
-      {
-        name: 'badge_tier',
-        type: 'u8',
+        name: 'verifier',
+        type: 'core::starknet::contract_address::ContractAddress',
       },
     ],
-    outputs: [
+  },
+  {
+    type: 'event',
+    name: 'donation_badge_verifier::badge_contract::DonationBadge::BadgeClaimed',
+    kind: 'struct',
+    members: [
       {
-        type: 'bool',
+        name: 'recipient',
+        type: 'core::starknet::contract_address::ContractAddress',
+        kind: 'key',
+      },
+      {
+        name: 'tier',
+        type: 'core::integer::u8',
+        kind: 'data',
+      },
+      {
+        name: 'commitment_hash',
+        type: 'core::felt252',
+        kind: 'data',
       },
     ],
-    state_mutability: 'external',
+  },
+  {
+    type: 'event',
+    name: 'donation_badge_verifier::badge_contract::DonationBadge::Event',
+    kind: 'enum',
+    variants: [
+      {
+        name: 'BadgeClaimed',
+        type: 'donation_badge_verifier::badge_contract::DonationBadge::BadgeClaimed',
+        kind: 'nested',
+      },
+    ],
   },
 ];
 
@@ -212,7 +364,23 @@ export class BadgeService {
       throw new Error(`Proof generation failed: ${error}`);
     }
 
-    const result = await response.json();
+    // Get response as text first to handle large numbers
+    const text = await response.text();
+    
+    // Parse with custom handling for large numbers in arrays
+    const result = JSON.parse(text, (key, value) => {
+      // Only convert numbers within the calldata array to strings
+      if (key === 'calldata' && Array.isArray(value)) {
+        return value.map(v => {
+          if (typeof v === 'number' && !Number.isSafeInteger(v)) {
+            // Large number that would become scientific notation
+            return v.toString();
+          }
+          return v;
+        });
+      }
+      return value;
+    });
 
     onStatusUpdate?.({
       stage: 'complete',
@@ -227,8 +395,59 @@ export class BadgeService {
       throw new Error('Proof generation response missing commitment');
     }
 
+    console.log('[BadgeService] Proof from backend:', {
+      calldataLength: result.calldata?.length,
+      calldataType: typeof result.calldata,
+      firstElement: result.calldata?.[0],
+      firstElementType: typeof result.calldata?.[0]
+    });
+
+    // Parse calldata if it's a JSON string
+    let calldataArray: string[];
+    if (typeof result.calldata === 'string') {
+      // Backend returned JSON string
+      // Replace all numeric values with quoted strings to prevent scientific notation
+      const quotedJson = result.calldata.replace(
+        /:\s*(-?\d+\.?\d*(?:e[+-]?\d+)?)/gi,
+        ': "$1"'
+      ).replace(
+        /\[(-?\d+\.?\d*(?:e[+-]?\d+)?)/gi,
+        '["$1"'
+      ).replace(
+        /,\s*(-?\d+\.?\d*(?:e[+-]?\d+)?)/gi,
+        ', "$1"'
+      );
+      
+      calldataArray = JSON.parse(quotedJson);
+      
+      // Remove any remaining scientific notation by ensuring strings
+      calldataArray = calldataArray.map(v => {
+        const str = String(v);
+        // Check if it contains scientific notation
+        if (str.includes('e+') || str.includes('e-')) {
+          console.warn('[BadgeService] Found scientific notation:', str);
+          // Try to parse and convert properly
+          const num = parseFloat(str);
+          return num.toFixed(0);
+        }
+        return str;
+      });
+    } else if (Array.isArray(result.calldata)) {
+      // Already an array
+      calldataArray = result.calldata.map(v => String(v));
+    } else {
+      throw new Error('Invalid calldata format from backend');
+    }
+
+    console.log('[BadgeService] Parsed calldata:', {
+      length: calldataArray.length,
+      firstElement: calldataArray[0],
+      lastElement: calldataArray[calldataArray.length - 1],
+      hasScientificNotation: calldataArray.some(v => v.includes('e+') || v.includes('e-'))
+    });
+
     return {
-      fullProofWithHints: result.calldata,
+      fullProofWithHints: calldataArray,
       threshold: threshold.toString(),
       donationCommitment: donationCommitment.toString(),
       badgeTier: input.targetTier,
@@ -242,23 +461,48 @@ export class BadgeService {
       );
     }
 
-    this.contract.connect(account);
+    // In starknet.js v8.9.1+, we need to create a new contract instance with the account
+    const contractWithAccount = new Contract({
+      abi: BADGE_ABI,
+      address: this.contract.address,
+      providerOrAccount: account
+    });
 
-    const thresholdBigInt = BigInt(badgeProof.threshold);
-    const commitmentBigInt = BigInt(badgeProof.donationCommitment);
+    // Ensure all proof elements are strings (should already be from generateProof)
+    const proofsArray: string[] = Array.isArray(badgeProof.fullProofWithHints)
+      ? badgeProof.fullProofWithHints.map(p => String(p))
+      : [String(badgeProof.fullProofWithHints)];
 
-    const tx = await this.contract.invoke('claim_badge', [
-      badgeProof.fullProofWithHints,
-      {
-        low: thresholdBigInt & ((1n << 128n) - 1n),
-        high: thresholdBigInt >> 128n,
-      },
-      {
-        low: commitmentBigInt & ((1n << 128n) - 1n),
-        high: commitmentBigInt >> 128n,
-      },
-      badgeProof.badgeTier,
+    console.log('[BadgeService] Badge proof data:', {
+      threshold: badgeProof.threshold,
+      commitment: badgeProof.donationCommitment,
+      badgeTier: badgeProof.badgeTier,
+      proofsLength: proofsArray.length,
+      firstProofElement: proofsArray[0],
+      firstProofType: typeof proofsArray[0],
+      hasScientificNotation: proofsArray.some(p => p.includes('e+') || p.includes('e-'))
+    });
+
+    // Use the contract method directly - this uses the ABI for proper serialization
+    // This ensures Span<felt252> and u256 types are serialized correctly
+    console.log('[BadgeService] Invoking claim_badge with:', {
+      proofsLength: proofsArray.length,
+      threshold: badgeProof.threshold,
+      commitment: badgeProof.donationCommitment,
+      tier: badgeProof.badgeTier
+    });
+
+    // Use contract.invoke() which handles serialization using the ABI
+    const tx = await contractWithAccount.invoke('claim_badge', [
+      proofsArray,
+      cairo.uint256(badgeProof.threshold),
+      cairo.uint256(badgeProof.donationCommitment),
+      badgeProof.badgeTier
     ]);
+
+    console.log('[BadgeService] Transaction submitted:', {
+      transaction_hash: tx.transaction_hash
+    });
 
     await this.provider.waitForTransaction(tx.transaction_hash);
     return tx.transaction_hash;
