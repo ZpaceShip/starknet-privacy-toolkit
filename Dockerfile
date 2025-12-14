@@ -147,7 +147,12 @@ RUN nargo compile || true
 
 # Build Cairo verifier contract
 WORKDIR /app/donation_badge_verifier
-RUN scarb build || true
+RUN if [ -f src/lib.cairo ]; then \
+        echo "Found lib.cairo in donation_badge_verifier/src, running scarb build" && \
+        scarb build; \
+    else \
+        echo "Skipping scarb build: donation_badge_verifier/src/lib.cairo not found in image context"; \
+    fi
 
 # Return to app root
 WORKDIR /app
