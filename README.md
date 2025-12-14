@@ -8,15 +8,6 @@ This repository hosts an end-to-end reference implementation of Starknet privacy
 
 ---
 
-## Documentation Map (canonical)
-
-- This README is the canonical entrypoint (quickstart, deployments, and how to run).
-- Docker specifics: [DOCKER.md](DOCKER.md) (use the helper scripts; everything else is optional).
-- Badge contract redeploy (Sepolia): [MANUAL_DEPLOY_INSTRUCTIONS.md](MANUAL_DEPLOY_INSTRUCTIONS.md).
-- Cairo verifier + badge contract details: [donation_badge_verifier/README.md](donation_badge_verifier/README.md).
-- Noir circuit + proof generation: [zk-badges/README.md](zk-badges/README.md).
-- Legacy deep-dive (`README_DEVELOPERS_GUIDE.md`) now points back here to avoid duplication.
-
 ## System Overview
 
 | Layer | Component | Purpose |
@@ -117,54 +108,6 @@ DEPLOY.md                      # Pages deploy + deployment registry policy
 **The easiest way to run this project is with Docker.** All dependencies are pre-installed and configured.
 
 **Quick Start (3 steps):**
-#### Runbook Docker
-
-- **Build**: compila todo (Bun, Noir, Barretenberg, Garaga, Scarb, Foundry)
-
-```
-docker compose build
-```
-
-- **Arrancar**: levanta frontend (8080) y API de pruebas (3001)
-
-```
-docker compose up -d
-docker compose logs --tail=120
-```
-
-- **Parar**:
-
-```
-docker compose down
-```
-
-- **Declare/Deploy dentro del contenedor (Sepolia)**: reproducible con `sncast`.
-  1. Crear y desplegar cuenta OZ (RPC v0_10):
-
-```
-docker exec -it starknet-privacy-toolkit bash -c "sncast account create --name temp_oz_account --url https://starknet-sepolia.g.alchemy.com/starknet/version/rpc/v0_10/<YOUR_KEY>"
-docker exec -it starknet-privacy-toolkit bash -c "sncast account deploy --url https://starknet-sepolia.g.alchemy.com/starknet/version/rpc/v0_10/<YOUR_KEY> --name temp_oz_account"
-```
-
-  2. Declarar `DonationBadge` (compila Cairo y declara):
-
-```
-docker exec -it starknet-privacy-toolkit bash -c "cd /app/donation_badge_verifier && sncast --account temp_oz_account declare --url https://starknet-sepolia.g.alchemy.com/starknet/version/rpc/v0_10/<YOUR_KEY> --contract-name DonationBadge"
-```
-
-  3. Desplegar contrato con el verificador actual:
-
-```
-# Sustituye <VERIFIER_ADDRESS> por 0x022b20fef3764d09293c5b377bc399ae7490e60665797ec6654d478d74212669
-docker exec -it starknet-privacy-toolkit bash -c "sncast --account temp_oz_account deploy --class-hash 0x784536a36311694eaa1f8fa753e508e527f9d90527790293798508120dd30e1 --constructor-calldata <VERIFIER_ADDRESS> --url https://starknet-sepolia.g.alchemy.com/starknet/version/rpc/v0_10/<YOUR_KEY>"
-```
-
-Notas:
-- Si el declare devuelve "class no declarada" al intentar deploy, espera ~30s y reintenta.
-- La UI de badges está fija a Sepolia; las donaciones Tongo siguen el toggle de red.
-- **Cada claim requiere un `commitment` único**; si se reutiliza el mismo, el contrato lo rechaza con "Commitment already used". Regenera la prueba con un `donor_secret` diferente o valores nuevos.
-- En **GitHub Codespaces**: tras `bash docker-helper.sh start`, abre la pestaña "Ports" en el panel lateral para acceder a los enlaces auto-forwarded (8080 y 3001).
-
 
 1. **Install Docker Desktop**: [Download here](https://www.docker.com/products/docker-desktop)
 
@@ -206,6 +149,38 @@ Notas:
 **Documentation:**
 - 📖 [DOCKER.md](DOCKER.md) - Complete Docker guide
 - 🚀 [DOCKER-QUICKSTART-ES.md](DOCKER-QUICKSTART-ES.md) - Guía rápida en español
+
+---
+
+### Docker Workflow (Helper Commands)
+
+- Build + start:
+  ```bash
+  ./docker-helper.sh rebuild
+  ./docker-helper.sh start
+  ```
+- Compile Cairo verifier:
+  ```bash
+  ./docker-helper.sh build-verifier
+  ```
+- Compile Noir circuit:
+  ```bash
+  ./docker-helper.sh compile
+  ```
+- Generar prueba end‑to‑end (dentro del contenedor):
+  ```bash
+  ./docker-helper.sh proof 100000 mysecret 1
+  # parámetros: <amount> <donor_secret> <tier>
+  # el threshold por defecto se toma del circuito; ajusta el script si necesitas otro
+  ```
+- Escribir VK por separado (opcional):
+  ```bash
+  ./docker-helper.sh write-vk
+  ```
+
+Notas:
+- El helper valida `.env` mínimamente y avisa si faltan `STARKNET_ACCOUNT_ADDRESS`/`STARKNET_PRIVATE_KEY` para comandos CLI on‑chain. La UI puede funcionar sin ellos.
+- La etapa de calldata con Garaga puede fallar por incompatibilidad de formato del VK; no bloquea el flujo de pruebas + UI.
 
 ---
 

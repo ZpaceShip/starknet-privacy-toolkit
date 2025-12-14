@@ -121,6 +121,10 @@ FROM starknet-foundry-installer AS final
 ENV NODE_ENV=development
 ENV PATH="/usr/local/bin:/root/.bun/bin:/root/.cargo/bin:/root/.nargo/bin:/app/garaga-env/bin:/root/.local/bin:/root/.foundry/bin:$PATH"
 
+# Create node symlink using Bun (for proof generation and other node-dependent scripts)
+RUN ln -sf /root/.bun/bin/bun /usr/local/bin/node && \
+    ln -sf /root/.bun/bin/bun /usr/local/bin/npm
+
 # Copy package files
 # Copy only package.json to force fresh lockfile generation
 # This avoids "404 Not Found" errors from stale package-lock.json URLs

@@ -492,26 +492,6 @@ export class BadgeService {
       tier: badgeProof.badgeTier
     });
 
-    // Pre-chequeo: evitar revert por commitment ya usado
-    try {
-      const commitmentBigInt = BigInt(badgeProof.donationCommitment);
-      const res = await contractWithAccount.call('is_commitment_used', [
-        {
-          low: commitmentBigInt & ((1n << 128n) - 1n),
-          high: commitmentBigInt >> 128n,
-        },
-      ]);
-      const used = Boolean(res);
-      if (used) {
-        throw new Error('Commitment already used. Regenera la prueba con un donor_secret nuevo.');
-      }
-    } catch (e) {
-      if ((e as Error).message.includes('already used')) {
-        throw e;
-      }
-      console.warn('[BadgeService] No se pudo verificar is_commitment_used antes del claim:', e);
-    }
-
     // Use contract.invoke() which handles serialization using the ABI
     const tx = await contractWithAccount.invoke('claim_badge', [
       proofsArray,

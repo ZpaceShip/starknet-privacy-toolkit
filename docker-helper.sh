@@ -41,6 +41,27 @@ check_env() {
     print_success "Env ready ('.env' present or fallback applied)"
 }
 
+# Validate critical env vars for on-chain operations
+validate_env_minimal() {
+    # Load env values
+    set -a
+    [ -f .env ] && source .env
+    set +a
+
+    local missing=()
+    if [ -z "$STARKNET_RPC_URL" ]; then missing+=(STARKNET_RPC_URL); fi
+    # For CLI invoke/call flows, these are needed; UI can work without them
+    if [ -z "$STARKNET_ACCOUNT_ADDRESS" ]; then missing+=(STARKNET_ACCOUNT_ADDRESS); fi
+    if [ -z "$STARKNET_PRIVATE_KEY" ]; then missing+=(STARKNET_PRIVATE_KEY); fi
+
+    if [ ${#missing[@]} -gt 0 ]; then
+        print_warning "Missing env vars: ${missing[*]}"
+        print_info "Edit .env (copy from .env.example) before running on-chain CLI commands."
+    else
+        print_success "Env variables validated for CLI operations"
+    fi
+}
+
 # Detect compose command (docker compose or docker-compose)
 compose_cmd() {
     if command -v docker &> /dev/null; then
@@ -132,6 +153,8 @@ rebuild() {
 # Start services
 start() {
     check_env
+    # Light validation to warn early for CLI flows
+    validate_env_minimal || true
     
     # Auto-install local dependencies if not present (for IDE support)
     if [ ! -d "node_modules" ]; then
@@ -171,6 +194,12 @@ start() {
         print_info "Web UI: http://localhost:8080"
         print_info "API: http://localhost:3001"
     fi
+
+    # Optional first-run bootstrap: compile circuit and build verifier to ensure target artifacts exist
+    print_info "Bootstrapping ZK artifacts (compile circuit + build verifier)..."
+    $(compose_cmd) exec app bash -c "cd /app/zk-badges/donation_badge && nargo compile || true"
+    $(compose_cmd) exec app bash -c "cd /app/donation_badge_verifier && if [ -f src/lib.cairo ]; then scarb build || true; fi"
+    print_success "ZK artifacts ready (or already present)"
 }
 
 # Stop services
@@ -200,6 +229,15 @@ exec_cmd() {
 generate_proof() {
     print_info "Generating ZK proof..."
     $(compose_cmd) exec app bash -c "cd /app/zk-badges && ./generate-proof.sh $@"
+}
+
+# Write verification key only (wrapper)
+write_vk() {
+    print_info "Writing verification key with Barretenberg..."
+    # Ensure ACIR JSON exists; compile if missing
+    $(compose_cmd) exec app bash -c "cd /app/zk-badges/donation_badge && [ -f ./target/donation_badge.json ] || nargo compile"
+    $(compose_cmd) exec app bash -c "cd /app/zk-badges/donation_badge && bb write_vk -b ./target/donation_badge.json"
+    print_success "Verification key written"
 }
 
 # Compile Noir circuit
@@ -271,6 +309,7 @@ Commands:
     build-verifier  Build Cairo verifier contract
     test            Run Noir circuit tests
     proof [args]    Generate ZK proof (pass args to generate-proof.sh)
+    write-vk        Write verification key using Barretenberg in target/
     
     clean           Remove all containers, volumes, and images
     help            Show this help message
@@ -331,6 +370,9 @@ case "$1" in
     proof)
         shift
         generate_proof "$@"
+        ;;
+    write-vk)
+        write_vk
         ;;
     clean)
         clean
