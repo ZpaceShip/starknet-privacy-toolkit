@@ -483,6 +483,23 @@ export class BadgeService {
       hasScientificNotation: proofsArray.some(p => p.includes('e+') || p.includes('e-'))
     });
 
+    // Prevent on-chain revert when commitment was already consumed
+    try {
+      const commitmentBigInt = BigInt(badgeProof.donationCommitment);
+      const commitmentU256 = {
+        low: commitmentBigInt & ((1n << 128n) - 1n),
+        high: commitmentBigInt >> 128n,
+      };
+      const usedRes = await contractWithAccount.call('is_commitment_used', [commitmentU256]);
+      const used = Array.isArray(usedRes) ? Boolean(usedRes[0]) : Boolean(usedRes);
+      if (used) {
+        throw new Error('Commitment already used. Regenera la prueba con un donor_secret diferente o cambia el monto.');
+      }
+    } catch (e) {
+      // If the call fails, proceed but log for visibility
+      console.warn('[BadgeService] No se pudo verificar is_commitment_used antes del claim:', e);
+    }
+
     // Use the contract method directly - this uses the ABI for proper serialization
     // This ensures Span<felt252> and u256 types are serialized correctly
     console.log('[BadgeService] Invoking claim_badge with:', {
