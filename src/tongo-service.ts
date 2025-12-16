@@ -772,11 +772,19 @@ export class TongoService {
    * 1. Create Withdraw operation for amount
    * 2. SDK generates ZK proof of ownership + balance
    * 3. Submit to contract (amount is PUBLIC in logs)
+   * 
+   * @param amountInToken - Amount in token units (wei for STRK, wei for USDC)
    */
-  async withdrawDonations(amountInTongo: bigint): Promise<string> {
-    console.log(`[WITHDRAW] Withdrawing ${amountInTongo} Tongo`);
+  async withdrawDonations(amountInToken: bigint): Promise<string> {
+    console.log(`[WITHDRAW] Withdrawing ${amountInToken} in token units`);
 
     try {
+      // Convert token amount to Tongo internal units using SDK
+      // This is critical: amountInToken is in wei (10^18 for STRK, 10^6 for USDC)
+      // but accountState.balance is in Tongo internal units which differ
+      const amountInTongo = await this.tongoAccount.erc20ToTongo(amountInToken);
+      console.log(`[WITHDRAW] Converted ${amountInToken} token units to ${amountInTongo} Tongo units`);
+
       // Get current state to validate balance
       const accountState = await this.tongoAccount.state();
       if (accountState.balance < amountInTongo) {
