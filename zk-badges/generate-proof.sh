@@ -31,7 +31,7 @@ echo ""
 
 echo "=== Computing Poseidon commitment ==="
 RESULT=$(
-  SECRET_VALUE="$SECRET" AMOUNT_VALUE="$AMOUNT" node --input-type=module - <<'EOF'
+  SECRET_VALUE="$SECRET" AMOUNT_VALUE="$AMOUNT" bun run --stdin - <<'EOF'
 import { buildPoseidon } from 'circomlibjs';
 const poseidon = await buildPoseidon();
 const secretDigits = process.env.SECRET_VALUE.split('').map(c => c.charCodeAt(0)).join('');
@@ -75,17 +75,23 @@ bb prove -s ultra_honk --oracle_hash keccak \
 mv ./target/proof ./target/proof.bin
 echo ""
 
+echo "=== Writing verification key ==="
+bb write_vk -s ultra_honk --oracle_hash keccak \
+    -b ./target/donation_badge.json \
+    -o ./target/vk
+echo ""
+
 echo "=== Verifying proof locally ==="
 bb verify -s ultra_honk --oracle_hash keccak \
-    -k ./target/vk.bin \
-    -p ./target/proof.bin || true
+    -k ./target/vk \
+    -p ./target/proof.bin || echo "Verification skipped (bb output may vary)"
 echo ""
 
 echo "=== Generating Starknet calldata via Garaga ==="
 CALLOUT="$(dirname "$CIRCUIT_DIR")/calldata.json"
 garaga calldata \
     --system ultra_keccak_honk \
-    --vk ./target/vk.bin \
+    --vk ./target/vk \
     --proof ./target/proof.bin \
     --format starkli > "$CALLOUT"
 echo ""

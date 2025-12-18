@@ -17,20 +17,27 @@ export default defineConfig({
     }
   },
   server: {
+    host: '0.0.0.0', // Listen on all network interfaces (required for Docker)
     port: 8080,
-    open: true,
+    open: false, // Don't try to open browser in Docker
     cors: true,
+    proxy: {
+      // Proxy API requests to the Bun server
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        secure: false,
+      }
+    }
   },
   resolve: {
     alias: {
-      '@': resolve(__dirname, './src'),
-      // Allow importing from dist folder of tongo-sdk
-      '@fatsolutions/tongo-sdk/dist/types.js': resolve(__dirname, './node_modules/@fatsolutions/tongo-sdk/dist/types.js')
+      '@': resolve(__dirname, './src')
     },
     dedupe: []
   },
   optimizeDeps: {
-    include: ['@fatsolutions/tongo-sdk', '@fatsolutions/tongo-sdk/dist/types.js', 'get-starknet'],
+    include: ['@fatsolutions/tongo-sdk', 'get-starknet'],
     exclude: ['crypto', 'dotenv'] // Exclude Node.js modules from browser bundle
   },
   define: {

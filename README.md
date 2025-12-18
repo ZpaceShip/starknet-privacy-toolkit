@@ -29,7 +29,7 @@ This repository hosts an end-to-end reference implementation of Starknet privacy
 | Mainnet | USDC Token | `0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8` | ERC20 used for funding/withdraw |
 | **Sepolia** | Tongo Donation Contract | `0x00b4cca30f0f641e01140c1c388f55641f1c3fe5515484e622b6cb91d8cee585` | Testnet STRK version |
 | Sepolia | STRK Token | `0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d` | Testnet token used in UI |
-| Sepolia | `DonationBadge` Contract | `0x077ca6f2ee4624e51ed6ea6d5ca292889ca7437a0c887bf0d63f055f42ad7010` | Mints badge tiers after proof verification |
+| Sepolia | `DonationBadge` Contract | `0x02322f587511a10412175afc0312012fd55c271f6073966450cd7821bfd9aee1` | Class hash `0x784536a36311694eaa1f8fa753e508e527f9d90527790293798508120dd30e1`; uses verifier `0x022b20fef3764d09293c5b377bc399ae7490e60665797ec6654d478d74212669` |
 | Sepolia | `UltraKeccakHonkVerifier` | `0x022b20fef3764d09293c5b377bc399ae7490e60665797ec6654d478d74212669` | Garaga-generated verifier used by badge contract |
 
 Deployment metadata lives in `deployments/`, and the frontend consumes it via `src/deployments.ts`. Add a new `<network>.json` file when you deploy additional environments.
@@ -103,12 +103,97 @@ DEPLOY.md                      # Pages deploy + deployment registry policy
 
 ## Getting Started
 
-1. **Clone + install JS deps**
+### 🐳 Docker (Recommended - Zero Setup)
+
+**The easiest way to run this project is with Docker.** All dependencies are pre-installed and configured.
+
+**Quick Start (3 steps):**
+
+1. **Install Docker Desktop**: [Download here](https://www.docker.com/products/docker-desktop)
+
+2. **Clone and configure**:
    ```bash
-   git clone https://github.com/omarespejel/tongo-ukraine-donations.git
-   cd tongo-donation-demo
-   bun install
+  git clone https://github.com/omarespejel/starknet-privacy-toolkit.git
+  cd starknet-privacy-toolkit
+   cp .env.example .env
    ```
+
+3. **Build and run**:
+   ```bash
+   # Windows (PowerShell)
+   .\docker-helper.ps1 build
+   .\docker-helper.ps1 start
+
+   # Linux/Mac
+   chmod +x docker-helper.sh
+   ./docker-helper.sh build
+   ./docker-helper.sh start
+
+   # Or manually
+   docker-compose build
+   docker-compose up -d
+   ```
+
+4. **Access the app**: http://localhost:8080
+
+**What's included in Docker:**
+- ✅ Bun runtime
+- ✅ Noir (nargo) v1.0.0-beta.1
+- ✅ Barretenberg (bb) v0.67.0
+- ✅ Garaga v0.15.5
+- ✅ Scarb v2.9.2
+- ✅ Starknet Foundry
+- ✅ All Node.js dependencies
+- ✅ Pre-compiled circuits and contracts
+
+**Documentation:**
+- 📖 [DOCKER.md](DOCKER.md) - Complete Docker guide
+- 🚀 [DOCKER-QUICKSTART-ES.md](DOCKER-QUICKSTART-ES.md) - Guía rápida en español
+
+---
+
+### Docker Workflow (Helper Commands)
+
+- Build + start:
+  ```bash
+  ./docker-helper.sh rebuild
+  ./docker-helper.sh start
+  ```
+- Compile Cairo verifier:
+  ```bash
+  ./docker-helper.sh build-verifier
+  ```
+- Compile Noir circuit:
+  ```bash
+  ./docker-helper.sh compile
+  ```
+- Generar prueba end‑to‑end (dentro del contenedor):
+  ```bash
+  ./docker-helper.sh proof 100000 mysecret 1
+  # parámetros: <amount> <donor_secret> <tier>
+  # el threshold por defecto se toma del circuito; ajusta el script si necesitas otro
+  ```
+- Escribir VK por separado (opcional):
+  ```bash
+  ./docker-helper.sh write-vk
+  ```
+
+Notas:
+- El helper valida `.env` mínimamente y avisa si faltan `STARKNET_ACCOUNT_ADDRESS`/`STARKNET_PRIVATE_KEY` para comandos CLI on‑chain. La UI puede funcionar sin ellos.
+- La etapa de calldata con Garaga puede fallar por incompatibilidad de formato del VK; no bloquea el flujo de pruebas + UI.
+
+---
+
+### 💻 Manual Installation (Advanced)
+
+If you prefer to install dependencies manually:
+
+1. **Clone + install JS deps**
+  ```bash
+  git clone https://github.com/omarespejel/starknet-privacy-toolkit.git
+  cd starknet-privacy-toolkit
+  bun install
+  ```
 
 2. **Install ZK toolchain (versions matter!)**
    ```bash
@@ -319,8 +404,8 @@ This repository is intentionally dual-purpose: it is both a Garaga/Noir badge tu
 ### Installation
 
 ```bash
-git clone https://github.com/omarespejel/tongo-ukraine-donations.git
-cd tongo-donation-demo
+git clone https://github.com/omarespejel/starknet-privacy-toolkit.git
+cd starknet-privacy-toolkit
 bun install
 ```
 
@@ -353,7 +438,7 @@ Requires the `.env` values mentioned above.
 | ------- | -------------- | ----- | ----- |
 | Mainnet | `0x72098b84989a45cc00697431dfba300f1f5d144ae916e98287418af4e548d96` | USDC `0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8` | Matches SDK v1.3.0 |
 | Sepolia | `0x00b4cca30f0f641e01140c1c388f55641f1c3fe5515484e622b6cb91d8cee585` | STRK `0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d` | Uses Alchemy RPC |
-| Sepolia (Badges) | `DonationBadge` `0x077ca6f2ee4624e51ed6ea6d5ca292889ca7437a0c887bf0d63f055f42ad7010` | N/A | Calls into verifier `0x022b20fef3764d09293c5b377bc399ae7490e60665797ec6654d478d74212669` |
+| Sepolia (Badges) | `DonationBadge` `0x02322f587511a10412175afc0312012fd55c271f6073966450cd7821bfd9aee1` | N/A | Class hash `0x784536a36311694eaa1f8fa753e508e527f9d90527790293798508120dd30e1`; verifier `0x022b20fef3764d09293c5b377bc399ae7490e60665797ec6654d478d74212669` |
 
 Edit `src/wallet-config.ts` for RPCs; the `.env` file affects CLI usage only.
 

@@ -12,10 +12,10 @@
       "artifact": "donation_badge_verifier/target/release/donation_badge_verifier_UltraKeccakHonkVerifier.compiled_contract_class.json"
     },
     "DonationBadge": {
-      "class_hash": "0x04bedab69579e1f888f408aa5a96462228ba94b91c736367664c0cb41460c36c",
-      "address": "0x077ca6f2ee4624e51ed6ea6d5ca292889ca7437a0c887bf0d63f055f42ad7010",
-      "declaration_tx": "0x055f21b6b382f00d1f5b028fc16317de0571c421e7ee03a8533ca2b2e8a1d47d",
-      "deployment_tx": "0x048a87e408dd2153a1c092a1fb163b1aad698d0cefc8e942de4456a4ba383ced",
+      "class_hash": "0x784536a36311694eaa1f8fa753e508e527f9d90527790293798508120dd30e1",
+      "address": "0x02322f587511a10412175afc0312012fd55c271f6073966450cd7821bfd9aee1",
+      "declaration_tx": "0x72ddd626f01f444dce200c66ed296f16af6d08657e1111b3eeb3e45f0b7e830",
+      "deployment_tx": "0x01c848df4d3061131b02b474e4aebbeb1b7532178e1fac062a8e6cc48e7b1cfd",
       "artifact": "donation_badge_verifier/target/release/donation_badge_verifier_DonationBadge.compiled_contract_class.json"
     }
   },

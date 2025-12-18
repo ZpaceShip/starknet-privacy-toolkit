@@ -16,6 +16,7 @@ pub trait IDonationBadge<TContractState> {
     fn get_badge_tier(self: @TContractState, address: ContractAddress) -> u8;
     fn is_commitment_used(self: @TContractState, commitment: u256) -> bool;
     fn get_badge_counts(self: @TContractState) -> (u64, u64, u64);
+    fn get_verifier_address(self: @TContractState) -> ContractAddress;
 }
 
 #[starknet::interface]
@@ -149,6 +150,10 @@ pub mod DonationBadge {
                 self.total_silver.read(),
                 self.total_gold.read(),
             )
+        }
+
+        fn get_verifier_address(self: @ContractState) -> ContractAddress {
+            self.verifier_contract.read()
         }
     }
 }
